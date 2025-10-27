@@ -1,0 +1,18 @@
+[package]
+name = "slint-rust-template"
+version = "0.1.0"
+edition = "2021"
+build = "build.rs"
+description = "Rust desktop app for something"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+slint = "1.12.1"
+
+[build-dependencies]
+slint-build = "1.12.1"
+
+[package.metadata.bundle]
+name = "Rust App"
+identifier = "io.github.jneurauter.rust-app"
