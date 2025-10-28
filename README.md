@@ -57,5 +57,6 @@ And please update README if you find it's missing something!
 
 
 ## 🛠️ Updates Needed:
-- When an item is recopied from UI, the item should go to the top and also be removed from previous location.
 - Complete UI Overhaul
+- Allow copying images as well
+- Paraphrase long texts with ... to shorten
