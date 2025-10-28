@@ -43,7 +43,7 @@ Then we need to check that dependencies are correct:
 ### 🏃‍♂️ Running the script
 Navigate to root directory, /clipboard-manager and run the following:
 ```
-npm install --save-dev @tauri-app/cli
+npm install --save-dev @tauri-apps/cli
 npm install @tauri-apps/api
 ```
 
