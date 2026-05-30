@@ -1,20 +1,54 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { ClipboardImage } from "./ClipboardImage";
+import { TextHistoryItem } from "./TextHistoryItem";
+import "./App.css";
 
-type ClipboardItem = { content: string };
+type ClipboardItem =
+  | { kind: "text"; content: string }
+  | { kind: "image"; data_url: string };
+
+function pruneExpanded(expanded: Set<number>, length: number): Set<number> {
+  const next = new Set<number>();
+  for (const index of expanded) {
+    if (index < length) {
+      next.add(index);
+    }
+  }
+  return next.size === expanded.size ? expanded : next;
+}
 
 export default function App() {
   const [history, setHistory] = useState<ClipboardItem[]>([]);
+  const [expandedText, setExpandedText] = useState<Set<number>>(new Set());
 
   const refreshHistory = async () => {
     const newHistory = await invoke<ClipboardItem[]>("get_history");
     setHistory(newHistory);
+    setExpandedText((prev) => pruneExpanded(prev, newHistory.length));
   };
 
-  const handleCopy = async (text: string) => {
-    await invoke("copy_to_clipboard", { text });
+  const handleCopy = async (item: ClipboardItem) => {
+    await invoke("copy_to_clipboard", { item });
     refreshHistory();
+  };
+
+  const handleClear = async () => {
+    await invoke("clear_history");
+    setExpandedText(new Set());
+  };
+
+  const toggleExpanded = (index: number) => {
+    setExpandedText((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) {
+        next.delete(index);
+      } else {
+        next.add(index);
+      }
+      return next;
+    });
   };
 
   useEffect(() => {
@@ -22,6 +56,7 @@ export default function App() {
 
     const unlisten = listen<ClipboardItem[]>("clipboard_update", (event) => {
       setHistory(event.payload);
+      setExpandedText((prev) => pruneExpanded(prev, event.payload.length));
     });
 
     return () => {
@@ -30,28 +65,49 @@ export default function App() {
   }, []);
 
   return (
-    <div className="p-4 max-w-md mx-auto">
-      <h1 className="text-xl font-bold mb-3">Clipboard Manager</h1>
+    <div className="app">
+      <header className="app-header">
+        <h1>Clipboard Manager</h1>
+        <button
+          type="button"
+          className="btn-clear"
+          onClick={handleClear}
+          disabled={history.length === 0}
+        >
+          Clear history
+        </button>
+      </header>
 
-      <ul>
-        {history.map((item, i) => (
-          <li
-            key={i}
-            className="border-b py-2 flex justify-between items-center"
-          >
-            <span>{item.content}</span>
-            <button
-              className="text-blue-500 hover:underline"
-              onClick={() => handleCopy(item.content)}
-            >
-              Copy
-            </button>
-          </li>
-        ))}
+      <ul className="history-list">
+        {history.map((item, i) =>
+          item.kind === "text" ? (
+            <TextHistoryItem
+              key={i}
+              content={item.content}
+              expanded={expandedText.has(i)}
+              onToggleExpand={() => toggleExpanded(i)}
+              onCopy={() => handleCopy(item)}
+            />
+          ) : (
+            <li key={i} className="history-item">
+              <ClipboardImage
+                dataUrl={item.data_url}
+                listLength={history.length}
+              />
+              <button
+                type="button"
+                className="btn-copy"
+                onClick={() => handleCopy(item)}
+              >
+                Copy
+              </button>
+            </li>
+          ),
+        )}
       </ul>
 
       {history.length === 0 && (
-        <p className="text-gray-500 italic">Copy something to see it here!</p>
+        <p className="empty-state">Copy something to see it here!</p>
       )}
     </div>
   );
