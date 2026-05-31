@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
+const MAX_DISPLAY_HEIGHT = 200;
+
 type Props = {
   dataUrl: string;
   listLength: number;
@@ -20,11 +22,9 @@ export function ClipboardImage({ dataUrl, listLength }: Props) {
     }
 
     const maxWidth = container.clientWidth;
-    const top = container.getBoundingClientRect().top;
-    const maxHeight = Math.max(48, window.innerHeight - top - 16);
     const scale = Math.min(
       maxWidth / natural.width,
-      maxHeight / natural.height,
+      MAX_DISPLAY_HEIGHT / natural.height,
     );
 
     setSize({
