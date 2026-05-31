@@ -13,6 +13,7 @@
     "windows": [
       {
         "title": "clipboard-manager",
+        "hiddenTitle": true,
         "width": 800,
         "height": 600
       }

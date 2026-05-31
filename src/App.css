@@ -147,6 +147,10 @@ body,
   line-height: 1.5;
 }
 
+.history-text-full--no-indent {
+  margin-left: 0;
+}
+
 .clipboard-image-container {
   flex: 1;
   min-width: 0;
