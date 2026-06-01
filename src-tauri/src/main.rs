@@ -161,31 +161,37 @@ fn start_clipboard_watcher(app: AppHandle, state: AppState) {
         loop {
             let mut updated = false;
 
-            if let Ok(text) = clipboard.get_text() {
-                let mut last_text = state.last_text.lock().unwrap();
-                if !text.is_empty() && last_text.as_ref() != Some(&text) {
-                    *last_text = Some(text.clone());
-                    drop(last_text);
-                    let mut history = state.history.lock().unwrap();
-                    push_history(&mut history, ClipboardItem::Text { content: text });
-                    updated = true;
-                }
-            }
+            // Get current clipboard state
+            let current_text = clipboard.get_text().ok().filter(|t| !t.is_empty());
+            let current_image = clipboard
+                .get_image()
+                .ok()
+                .and_then(|img| image_to_data_url(img).ok());
 
-            if let Ok(image) = clipboard.get_image() {
-                if let Ok(data_url) = image_to_data_url(image) {
-                    let mut last_image = state.last_image.lock().unwrap();
-                    if last_image.as_ref() != Some(&data_url) {
-                        *last_image = Some(data_url.clone());
-                        drop(last_image);
-                        let mut history = state.history.lock().unwrap();
-                        push_history(
-                            &mut history,
-                            ClipboardItem::Image { data_url },
-                        );
-                        updated = true;
-                    }
-                }
+            // Check what changed
+            let mut last_text = state.last_text.lock().unwrap();
+            let mut last_image = state.last_image.lock().unwrap();
+
+            let text_changed = last_text.as_ref() != current_text.as_ref();
+            let image_changed = last_image.as_ref() != current_image.as_ref();
+
+            // Update the last known state
+            *last_text = current_text.clone();
+            *last_image = current_image.clone();
+
+            drop(last_text);
+            drop(last_image);
+
+            // Add to history - if both changed, prefer the one that's not empty
+            // (both being different suggests one was just set)
+            if text_changed && current_text.is_some() {
+                let mut history = state.history.lock().unwrap();
+                push_history(&mut history, ClipboardItem::Text { content: current_text.unwrap() });
+                updated = true;
+            } else if image_changed && current_image.is_some() {
+                let mut history = state.history.lock().unwrap();
+                push_history(&mut history, ClipboardItem::Image { data_url: current_image.unwrap() });
+                updated = true;
             }
 
             if updated {

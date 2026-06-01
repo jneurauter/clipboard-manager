@@ -1,27 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Copy } from "lucide-react";
 
 type Props = {
   content: string;
-  expanded: boolean;
-  onToggleExpand: () => void;
   onCopy: () => void;
 };
 
-export function TextHistoryItem({
-  content,
-  expanded,
-  onToggleExpand,
-  onCopy,
-}: Props) {
+export function TextHistoryItem({ content, onCopy }: Props) {
   const textRef = useRef<HTMLSpanElement>(null);
   const [isOverflowing, setIsOverflowing] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   const checkOverflow = useCallback(() => {
     const el = textRef.current;
     if (!el) {
       return;
     }
-    setIsOverflowing(el.scrollWidth > el.clientWidth);
+    setIsOverflowing(el.scrollHeight > el.clientHeight || el.scrollWidth > el.clientWidth);
   }, []);
 
   useEffect(() => {
@@ -45,33 +40,34 @@ export function TextHistoryItem({
   return (
     <li className="history-item history-item--text">
       <div className="history-item-row">
+        <button
+          type="button"
+          className="btn-copy btn-copy-left"
+          onClick={onCopy}
+          aria-label="Copy item"
+        >
+          <Copy className="copy-icon" aria-hidden="true" />
+        </button>
+
         {showExpand && (
           <button
             type="button"
             className={`btn-expand${expanded ? " btn-expand--open" : ""}`}
             aria-expanded={expanded}
-            aria-label={expanded ? "Collapse full text" : "Show full text"}
-            onClick={onToggleExpand}
+            aria-label={expanded ? "Collapse text" : "Expand text"}
+            onClick={() => setExpanded((prev) => !prev)}
           >
             ▶
           </button>
         )}
-        <span ref={textRef} className="history-text">
-          {content}
-        </span>
-        <button type="button" className="btn-copy" onClick={onCopy}>
-          Copy
-        </button>
-      </div>
-      {expanded && (
-        <div
-          className={`history-text-full${showExpand ? "" : " history-text-full--no-indent"}`}
-          role="region"
-          aria-label="Full text"
+
+        <span
+          ref={textRef}
+          className={`history-text${expanded ? " history-text--expanded" : ""}`}
         >
           {content}
-        </div>
-      )}
+        </span>
+      </div>
     </li>
   );
 }
