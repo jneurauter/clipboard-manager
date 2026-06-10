@@ -9,7 +9,11 @@ use std::{
     thread,
     time::Duration,
 };
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::{
+    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
+    AppHandle, Emitter, Manager, State, WindowEvent, ActivationPolicy,
+    menu::{Menu, MenuItem}
+};
 
 const HISTORY_FILE: &str = "clipboard_history.json";
 const MAX_HISTORY: usize = 10;
@@ -106,6 +110,17 @@ fn persist_and_snapshot(state: &AppState) -> Result<Vec<ClipboardItem>, String> 
     let snapshot = state.history.lock().unwrap().clone();
     save_history(&state.history_path, &snapshot)?;
     Ok(snapshot)
+}
+
+fn toggle_main_window(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        if window.is_visible().unwrap_or(false) {
+            let _ = window.hide();
+        } else {
+            let _ = window.show();
+            let _ = window.set_focus();
+        }
+    }
 }
 
 /// Marks the current clipboard contents as "already seen" so the watcher does not
@@ -212,7 +227,19 @@ fn start_clipboard_watcher(app: AppHandle, state: AppState) {
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
+            // Sets so app doesn't appear in dock or app switcher, but can still have windows and a menu bar on macOS. On other platforms this has no effect.
+            #[cfg(target_os = "macos")]
+            app.set_activation_policy(ActivationPolicy::Accessory);
+
             let app_handle = app.handle();
+            let quit = MenuItem::with_id(
+                app,
+                "quit",
+                "Quit Clipboard Manager",
+                true,
+                None::<&str>,
+            )?;
+            let menu = Menu::with_items(app, &[&quit])?;
             let history_path = app
                 .path()
                 .app_data_dir()
@@ -229,6 +256,46 @@ pub fn run() {
 
             app.manage(state.clone());
             start_clipboard_watcher(app_handle.clone(), state);
+
+            if let Some(window) = app.get_webview_window("main") {
+                let window_for_close = window.clone();
+                window.on_window_event(move |event| {
+                    if let WindowEvent::CloseRequested { api, .. } = event {
+                        api.prevent_close();
+                        let _ = window_for_close.hide();
+                    }
+                });
+                let _ = window.hide();
+            }
+
+            let _tray_icon = TrayIconBuilder::new()
+                .menu(&menu)
+                .icon(
+                    app.default_window_icon()
+                        .cloned()
+                        .ok_or_else(|| "default window icon not found".to_string())?,
+                )
+                .icon_as_template(true)
+                .show_menu_on_left_click(false)
+                .tooltip("Clipboard Manager")
+                .on_tray_icon_event(|tray, event| {
+                    if let TrayIconEvent::Click {
+                        button,
+                        button_state,
+                        ..
+                    } = event
+                    {
+                        if button == MouseButton::Left && button_state == MouseButtonState::Up {
+                            toggle_main_window(tray.app_handle());
+                        }
+                    }
+                })
+                .on_menu_event(|app, event| {
+                    if event.id.as_ref() == "quit" {
+                        app.exit(0)
+                    }
+                })
+                .build(app)?;
 
             Ok(())
         })
