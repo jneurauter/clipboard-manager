@@ -18,10 +18,12 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["default"] }
-tauri-plugin-opener = "2"
+tauri = { version = "2.11", features = [] }
+tauri-plugin-opener = "2.5"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 arboard = "3.3" # clipboard access
+base64 = "0.22"
+image = { version = "0.25", default-features = false, features = ["png"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 

@@ -1,8 +1,14 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import { Copy } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { ClipboardImage } from "./ClipboardImage";
+import { TextHistoryItem } from "./TextHistoryItem";
+import "./App.css";
 
-type ClipboardItem = { content: string };
+type ClipboardItem =
+  | { kind: "text"; content: string }
+  | { kind: "image"; data_url: string };
 
 export default function App() {
   const [history, setHistory] = useState<ClipboardItem[]>([]);
@@ -12,9 +18,12 @@ export default function App() {
     setHistory(newHistory);
   };
 
-  const handleCopy = async (text: string) => {
-    await invoke("copy_to_clipboard", { text });
-    refreshHistory();
+  const handleCopy = async (item: ClipboardItem) => {
+    await invoke("copy_to_clipboard", { item });
+  };
+
+  const handleClear = async () => {
+    await invoke("clear_history");
   };
 
   useEffect(() => {
@@ -22,6 +31,7 @@ export default function App() {
 
     const unlisten = listen<ClipboardItem[]>("clipboard_update", (event) => {
       setHistory(event.payload);
+      // Keep history up to date when the clipboard changes
     });
 
     return () => {
@@ -30,29 +40,59 @@ export default function App() {
   }, []);
 
   return (
-    <div className="p-4 max-w-md mx-auto">
-      <h1 className="text-xl font-bold mb-3">Clipboard Manager</h1>
-
-      <ul>
-        {history.map((item, i) => (
-          <li
-            key={i}
-            className="border-b py-2 flex justify-between items-center"
+    <div className="glass-card">
+        <header className="glass-card-header">
+          <div className="header-title-group">
+            <div>
+              <h1>Clipboard Manager</h1>
+              <p className="subtitle">
+                {history.length} item{history.length === 1 ? "" : "s"} in history
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="btn-clear"
+            onClick={handleClear}
+            disabled={history.length === 0}
+            title="Clear history"
           >
-            <span>{item.content}</span>
-            <button
-              className="text-blue-500 hover:underline"
-              onClick={() => handleCopy(item.content)}
-            >
-              Copy
-            </button>
-          </li>
-        ))}
-      </ul>
+            Clear History
+          </button>
+        </header>
 
-      {history.length === 0 && (
-        <p className="text-gray-500 italic">Copy something to see it here!</p>
-      )}
-    </div>
+        <ul className="history-list">
+          {history.length === 0 ? (
+            <li className="empty-state">
+              <p>No clipboard history</p>
+            </li>
+          ) : (
+            history.map((item, i) =>
+              item.kind === "text" ? (
+                <TextHistoryItem
+                  key={i}
+                  content={item.content}
+                  onCopy={() => handleCopy(item)}
+                />
+              ) : (
+                <li key={i} className="item-card item-card-image">
+                  <button
+                    type="button"
+                    className="btn-copy btn-copy-left"
+                    onClick={() => handleCopy(item)}
+                    aria-label="Copy item"
+                  >
+                    <Copy className="copy-icon" aria-hidden="true" />
+                  </button>
+                  <ClipboardImage
+                    dataUrl={item.data_url}
+                    listLength={history.length}
+                  />
+                </li>
+              ),
+            )
+          )}
+        </ul>
+      </div>
   );
 }
